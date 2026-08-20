@@ -1,0 +1,304 @@
+{
+  "mode": "feishu_sync",
+  "model": "GLM-5.3",
+  "research_folder": "/Users/minimax/Downloads/model-release-analysis/GLM-5.3_竞品分析_20260820",
+  "sync_target": {
+    "parent_doc": "K0S4dLYl6opwlfxJSeLcLqipnAf",
+    "parent_wiki_node": "WMBlwxoe2iek7TkGWk4cy5hmnTr",
+    "vendor_heading": "Z.ai / 智谱 (GLM)",
+    "scope": [
+      "A",
+      "B",
+      "C"
+    ],
+    "permission_preflight": {
+      "identity": "user_access_token",
+      "docx_read_write": true,
+      "media_read_write": true,
+      "sheets_read_write": true,
+      "wiki_node_manage": true,
+      "status": "complete",
+      "reason": "已用当前 user 身份完成父级/子文档读取写入、媒体上传、表格回读写入和现有 Wiki 节点核对"
+    }
+  },
+  "target_status": {
+    "A": "updated",
+    "B": "updated",
+    "C": "updated"
+  },
+  "parent_section": {
+    "wiki_node": "WMBlwxoe2iek7TkGWk4cy5hmnTr",
+    "vendor": "Z.ai / 智谱 (GLM)",
+    "model_entry": "GLM-5.3",
+    "status": "updated"
+  },
+  "related_tables": [
+    {
+      "block_id": "8H2a3y",
+      "sheet_id": "8H2a3y",
+      "header": [
+        "模型",
+        "发布时间",
+        "Blog 强调要点（详细）",
+        "产品/技术思路",
+        "Blog 链接"
+      ],
+      "reason": "已读取并精准更新 GLM-5.3 所在 A9:E9，保留其他行、链接和原有样式；回读无剩余错配",
+      "checked_rows": 9,
+      "remaining_mismatches": 0,
+      "status": "updated"
+    }
+  ],
+  "screenshots": [
+    {
+      "id": "capability-cybersecurity-official",
+      "kind": "safety",
+      "source_class": "official_web",
+      "source_url": "https://z.ai/blog/glm-5.3",
+      "source_section": "CyberSecurity Evaluation",
+      "source_original": "https://z-cdn-media.chatglm.cn/prompts-rich-media-resources/5.3-blog/20260814-124300.png",
+      "method": "official_cdn_download",
+      "local_path": "images/20260814-124300.png",
+      "image_block": "doxcnzoi8pkayh1uxpvig4qjGke",
+      "caption": "官方网络安全三项基准对比",
+      "caption_block": "doxcnvO6SHPaJYrJpslhHafeTHb",
+      "caption_before_image": true,
+      "display_width": 1105,
+      "display_height": 990,
+      "size_policy": "child_existing; parent_not_required",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:Benchmark / 安全",
+      "parent_placement": "仅现有 GLM-5.3 子文档证据，父级不重复放图",
+      "child_placement": "现有 GLM-5.3 子文档：模型特点 + 展示 Case / 网络安全能力与漏洞账本",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "blank": false
+      },
+      "status": "verified"
+    },
+    {
+      "id": "benchmark-official-llm-performance",
+      "kind": "benchmark",
+      "source_class": "official_web",
+      "source_url": "https://z.ai/blog/glm-5.3",
+      "source_section": "LLM Performance Evaluation",
+      "source_original": "https://z-cdn-media.chatglm.cn/prompts-rich-media-resources/5.3-blog/S1UsYfhUGl.png",
+      "method": "official_cdn_download",
+      "local_path": "images/S1UsYfhUGl.png",
+      "image_block": "doxcn9p8ya6rQRF1J1CkwD260Af",
+      "caption": "官方六项工程与 Agent 基准对比",
+      "caption_block": "doxcn7AugvuNFo3W2FVWK4ocmIc",
+      "caption_before_image": true,
+      "display_width": 1130,
+      "display_height": 1355,
+      "size_policy": "child_existing; parent_not_required",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:Benchmark",
+      "parent_placement": "仅现有 GLM-5.3 子文档证据，父级不重复放图",
+      "child_placement": "现有 GLM-5.3 子文档：Benchmark / 官方 benchmark 总览与跨模型对比表",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "blank": false
+      },
+      "status": "verified"
+    },
+    {
+      "id": "case-agentic-coding-effort",
+      "kind": "case",
+      "source_class": "official_web",
+      "source_url": "https://z.ai/blog/glm-5.3",
+      "source_section": "Agentic Coding Performance by Effort Level",
+      "source_original": "https://z-cdn-media.chatglm.cn/prompts-rich-media-resources/5.3-blog/SyHnYGhUMg.png",
+      "method": "official_cdn_download",
+      "local_path": "images/SyHnYGhUMg.png",
+      "image_block": "doxcnqSwfKrMH2GJFsrZWwHqEvf",
+      "caption": "官方 Z.ai Code Bench 推理强度与输出 Token 对比",
+      "caption_block": "M7XhdqgDyo34dGxE5kZcErF0n6f",
+      "caption_before_image": true,
+      "display_width": 1105,
+      "display_height": 1040,
+      "size_policy": "child_existing; parent_not_required",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:模型特点 + 展示 Case",
+      "parent_placement": "仅现有 GLM-5.3 子文档证据，父级不重复放图",
+      "child_placement": "现有 GLM-5.3 子文档：模型特点 + 展示 Case / 后训练扩展与长程编码",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "blank": false
+      },
+      "status": "verified"
+    },
+    {
+      "id": "social-official-post",
+      "kind": "social",
+      "source_class": "official_web",
+      "source_url": "https://zcode.z.ai/",
+      "source_section": "ZCode 官网首屏",
+      "source_original": "https://zcode.z.ai/",
+      "method": "current_browser_screenshot",
+      "local_path": "/Users/minimax/Downloads/model-release-analysis/GLM-5.3_竞品分析_20260820/images/glm53-parent-social-zcode.png",
+      "image_block": "doxcnb83ozOsOTEOwhYpKyclxvb",
+      "caption": "ZCode 官网首屏：Official Harness for GLM-5.3 与 Coding Plan 入口。",
+      "caption_block": "doxcnfsGR6H7amlFn4mokOSTrRf",
+      "caption_before_image": true,
+      "display_width": 720,
+      "display_height": 796,
+      "size_policy": "parent_existing",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:发布过程与社区声势 / 宣发-社媒",
+      "parent_placement": "父级 Z.ai / 智谱 (GLM) → GLM-5.3 → 宣发/社媒右列",
+      "child_placement": "未复制到子文档；作为父级 GLM-5.3 宣发/社媒证据",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "login_wall": false,
+        "blank": false,
+        "complete_post": true
+      },
+      "status": "verified"
+    },
+    {
+      "id": "artificial-analysis-summary",
+      "kind": "artificial_analysis",
+      "source_class": "independent_benchmark",
+      "source_url": "https://artificialanalysis.ai/models/glm-5-3",
+      "source_section": "model-summary",
+      "source_original": "https://artificialanalysis.ai/models/glm-5-3",
+      "method": "in_app_browser_screenshot",
+      "local_path": "/Users/minimax/Downloads/model-release-analysis/GLM-5.3_竞品分析_20260820/images/glm53-aa-overview-inapp.png",
+      "image_block": "doxcnD1CaSGFN6XlKU591WgelMg",
+      "caption": "AA 模型总览：智能、速度、价格、上下文",
+      "caption_block": "doxcnD1CaSGFN6XlKU591WgelMg",
+      "caption_before_image": true,
+      "display_width": 900,
+      "display_height": 507,
+      "size_policy": "child_existing; parent_text_only",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:Artificial Analysis",
+      "parent_placement": "父级条目已更新 AA 独立数据文字与链接，未重复放图",
+      "child_placement": "现有 GLM-5.3 子文档：Artificial Analysis 交叉验证 / model-summary",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "login_wall": false,
+        "blank": false
+      },
+      "status": "verified"
+    },
+    {
+      "id": "artificial-analysis-breakdown",
+      "kind": "artificial_analysis",
+      "source_class": "independent_benchmark",
+      "source_url": "https://artificialanalysis.ai/models/glm-5-3",
+      "source_section": "intelligence-breakdown",
+      "source_original": "https://artificialanalysis.ai/models/glm-5-3#intelligence-breakdown",
+      "method": "in_app_browser_screenshot",
+      "local_path": "/Users/minimax/Downloads/model-release-analysis/GLM-5.3_竞品分析_20260820/images/glm53-aa-benchmarks-inapp.png",
+      "image_block": "doxcnmtuQC2zXuggnb3nL485Yfh",
+      "caption": "AA Benchmarks：Artificial Analysis 的 Intelligence Evaluations 基准与模型比较图表区块。",
+      "caption_block": "doxcnmtuQC2zXuggnb3nL485Yfh",
+      "caption_before_image": true,
+      "display_width": 900,
+      "display_height": 507,
+      "size_policy": "child_existing; parent_text_only",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:Artificial Analysis / Benchmark",
+      "parent_placement": "父级条目已更新 AA 独立数据文字与链接，未重复放图",
+      "child_placement": "现有 GLM-5.3 子文档：Artificial Analysis 交叉验证 / intelligence-breakdown",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "login_wall": false,
+        "blank": false
+      },
+      "status": "verified"
+    },
+    {
+      "id": "social-glm52-x-post",
+      "kind": "social",
+      "source_class": "official_social",
+      "source_url": "https://x.com/Zai_org/status/2066938937344495629",
+      "source_section": "GLM-5.2 宣发/社媒",
+      "source_original": "https://x.com/Zai_org/status/2066938937344495629",
+      "method": "existing_feishu_media_download",
+      "local_path": "/Users/minimax/Downloads/model-release-analysis/GLM-5.3_竞品分析_20260820/images/glm52-parent-social.png",
+      "image_block": "doxcnPfWC0CTlr3rp7yxCGdbv8f",
+      "caption": "GLM-5.2 官方 X 首帖截图，图片内包含完整帖文与 Agentic Coding benchmark 图；父级图片块没有独立 caption 段落。",
+      "caption_block": "doxcnPfWC0CTlr3rp7yxCGdbv8f（图片块自身；无独立 caption）",
+      "caption_before_image": true,
+      "display_width": 669,
+      "display_height": 1000,
+      "size_policy": "parent_existing",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:发布过程与社区声势 / 宣发-社媒",
+      "parent_placement": "父级 Z.ai / 智谱 (GLM) → GLM-5.2 → 宣发/社媒右列",
+      "child_placement": "未复制到子文档；作为父级历史模型社媒证据",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "login_wall": false,
+        "blank": false,
+        "complete_post": true
+      },
+      "status": "verified"
+    },
+    {
+      "id": "social-glm51-x-post",
+      "kind": "social",
+      "source_class": "official_social",
+      "source_url": "https://x.com/Zai_org/status/2041550153354519022",
+      "source_section": "GLM-5.1 宣发/社媒",
+      "source_original": "https://x.com/Zai_org/status/2041550153354519022",
+      "method": "existing_feishu_media_download",
+      "local_path": "/Users/minimax/Downloads/model-release-analysis/GLM-5.3_竞品分析_20260820/images/glm51-parent-social.png",
+      "image_block": "doxcng7zwujmoeRAnh4J0QH7eRb",
+      "caption": "GLM-5.1 官方 X 首帖截图，图片内包含完整帖文与 Coding Performance Evaluation 图；父级图片块没有独立 caption 段落。",
+      "caption_block": "doxcng7zwujmoeRAnh4J0QH7eRb（图片块自身；无独立 caption）",
+      "caption_before_image": true,
+      "display_width": 603,
+      "display_height": 859,
+      "size_policy": "parent_existing",
+      "template_reference": "CHILD-DOC-TEMPLATE.md:发布过程与社区声势 / 宣发-社媒",
+      "parent_placement": "父级 Z.ai / 智谱 (GLM) → GLM-5.1 → 宣发/社媒右列",
+      "child_placement": "未复制到子文档；作为父级历史模型社媒证据",
+      "visual_check": {
+        "status": "verified",
+        "verification_method": "view_image",
+        "login_wall": false,
+        "blank": false,
+        "complete_post": true
+      },
+      "status": "verified"
+    }
+  ],
+  "screenshot_candidates": [
+    {
+      "id": "social-x-full-post",
+      "source_url": "https://x.com/",
+      "reason": "未获得完整可视官方 X 首帖，不能把搜索结果当截图",
+      "status": "manual_screenshot_required"
+    }
+  ],
+  "child_wiki_doc": {
+    "parent_node": "WMBlwxoe2iek7TkGWk4cy5hmnTr",
+    "node_token": "Uqe1wGlFnioqEpk2UkCccLnpnBg",
+    "obj_token": "MrIQdKwTRoBsAExQLWUceOyqnLf",
+    "parent_node_token": "WMBlwxoe2iek7TkGWk4cy5hmnTr",
+    "title": "【2026/08/14】GLM-5.3：后训练扩展把开源编码推到网络安全",
+    "status": "updated"
+  },
+  "verification": {
+    "parent_readback": true,
+    "tables_checked": true,
+    "screenshots_checked": true,
+    "child_readback": true,
+    "child_validator": {
+      "status": "pass",
+      "violation_count": 0
+    },
+    "vendor_validator": {
+      "status": "pass",
+      "violation_count": 0
+    },
+    "manifest_validator": {
+      "status": "pass",
+      "error_count": 0
+    }
+  }
+}
