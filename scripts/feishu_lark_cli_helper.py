@@ -53,7 +53,10 @@ def api(method: str, path: str):
     """Call a Feishu API path through lark-cli and return helper-style data."""
 
     parsed = urlsplit(path)
-    args = ["api", method.upper(), parsed.path, "--as", IDENTITY, "--json"]
+    # The installed lark-cli exposes the generic API formatter as
+    # ``--format json``; unlike shortcut commands it does not accept the
+    # ``--json`` shorthand here.
+    args = ["api", method.upper(), parsed.path, "--as", IDENTITY, "--format", "json"]
     if parsed.query:
         args.extend(
             [
@@ -66,7 +69,9 @@ def api(method: str, path: str):
         detail = (stdout or stderr).strip()
         return None, {"code": returncode, "msg": detail}
     payload = _decode_json(stdout)
-    if payload.get("ok") is True:
+    # lark-cli 1.0.13 returns the raw API envelope (``code: 0``), while
+    # newer builds may wrap it as ``ok: true``. Support both shapes.
+    if payload.get("ok") is True or payload.get("code") == 0:
         return None, {"code": 0, "data": payload.get("data", {})}
     error = payload.get("error") or {}
     return None, {
