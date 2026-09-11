@@ -1,11 +1,20 @@
+# Publish only the maintained Skill and its supporting resources.
+/*
+!/.gitignore
+!/SKILL.md
+!/VERSION.json
+!/scripts/
+!/references/
+!/tests/
+!/evals/
+!/config/
+
+# Only the portable configuration example belongs in Git.
+/config/*
+!/config/targets.example.json
+
 .DS_Store
 .~*
 __pycache__/
 .pytest_cache/
 *.py[cod]
-
-
-# Local target configuration and generated Skill archives
-/config/targets.json
-/dist/
-/PACKAGE-MANIFEST.json
