@@ -9,8 +9,9 @@ import importlib.util
 import json
 import re
 import sys
-import urllib.request
 from pathlib import Path
+from sync_common import (document_snapshot, assert_document_unchanged, provenance, linked_target,
+                         SOURCE_CLASSES, load_helper as shared_load_helper)
 
 
 TEXT_KEYS = {
@@ -56,18 +57,10 @@ FORBIDDEN_READER_TEXT = (
 
 
 def load_helper(path):
-    helper_path = Path(path).expanduser()
-    if not helper_path.is_file():
-        raise FileNotFoundError(f"Feishu helper does not exist: {helper_path}")
-    spec = importlib.util.spec_from_file_location("feishudoc", helper_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load Feishu helper module: {helper_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    missing = [name for name in ("api", "_all_blocks", "_uat", "BASE") if not hasattr(module, name)]
-    if missing:
-        raise RuntimeError(f"Feishu helper is incompatible; missing: {', '.join(missing)}")
-    return module
+    helper = shared_load_helper(path)
+    if not callable(getattr(helper, "download_media", None)):
+        raise ValueError("helper must provide download_media without exposing raw credentials")
+    return helper
 
 
 def block_text(block):
@@ -159,14 +152,19 @@ def has_table_ancestor(block_id, blocks):
 
 
 def image_digest(fd, token):
-    if hasattr(fd, "download_media"):
-        return hashlib.sha256(fd.download_media(token)).hexdigest()
-    request = urllib.request.Request(
-        fd.BASE + f"/open-apis/drive/v1/medias/{token}/download",
-        headers={"Authorization": f"Bearer {fd._uat()}"},
-    )
-    with urllib.request.urlopen(request, timeout=120) as response:
-        return hashlib.sha256(response.read()).hexdigest()
+    return hashlib.sha256(fd.download_media(token)).hexdigest()
+
+
+def load_manifest(path):
+    manifest_path = Path(path).expanduser()
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"manifest does not exist: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest root must be a JSON object")
+    if manifest.get("schema_version") != 3:
+        raise ValueError("child validation requires manifest schema_version 3")
+    return manifest
 
 
 def main():
@@ -182,13 +180,19 @@ def main():
         required=True,
         help="Path to an existing compatible Feishu helper; no private-directory default is assumed",
     )
+    parser.add_argument(
+        "--manifest",
+        required=True,
+        help="Path to the v3 manifest used to bind model, images, and target tokens",
+    )
     args = parser.parse_args()
 
+    manifest = load_manifest(args.manifest) if args.manifest else None
     fd = load_helper(args.helper)
     document_id, wiki_node = resolve_document(fd, args.doc)
-    _, document_response = fd.api("GET", f"/open-apis/docx/v1/documents/{document_id}")
-    title = document_response.get("data", {}).get("document", {}).get("title", "")
-    items = fd._all_blocks(document_id)
+    snapshot = document_snapshot(fd, document_id)
+    title = snapshot["metadata"].get("title", "")
+    items = snapshot["blocks"]
     blocks = {block["block_id"]: block for block in items}
     root = blocks.get(document_id) or next((block for block in items if block.get("block_type") == 1), None)
     if not root:
@@ -220,16 +224,11 @@ def main():
     else:
         callout_ids = descendant_ids(root_ids[0], blocks)
         callout_text_blocks = [block_id for block_id in callout_ids if block_text(blocks[block_id])]
-        callout_urls = [url for block_id in callout_ids for url in block_urls(blocks[block_id])]
-        callout_source_lines = [
-            block_text(blocks[block_id]) for block_id in callout_ids
-            if block_urls(blocks[block_id])
-            or re.search(r"(?:https?://|[A-Za-z0-9.-]+\.(?:com|ai|cn|org)/)", block_text(blocks[block_id]))
-        ]
+        callout_urls = [url for block_id in callout_ids for url in clickable_urls(blocks[block_id])]
         if len(callout_text_blocks) < 3:
             violations.append("opening callout must contain a core judgment, positioning, and source links")
-        if len(callout_urls) < 2 and len(callout_source_lines) < 2:
-            violations.append("opening callout must contain at least two official source links")
+        if len(callout_urls) < 2:
+            violations.append("opening callout must contain at least two clickable official source links")
 
     for block in items:
         text = block_text(block)
@@ -280,17 +279,15 @@ def main():
     for required_columns, label in ((4, "opening evidence wall"), (2, "capability / benchmark"), (3, "release / community")):
         if required_columns not in column_counts:
             violations.append(f"missing required {required_columns}-column {label} grid")
-    opening_four_column = next(
-        (
-            grid for grid in grids
-            if len(grid.get("children") or []) == 4 and grid["block_id"] in root_ids[:4]
-        ),
-        None,
+    opening_four_column = (
+        blocks.get(root_ids[1])
+        if len(root_ids) > 1
+        and blocks.get(root_ids[1], {}).get("block_type") == 24
+        and len(blocks.get(root_ids[1], {}).get("children") or []) == 4
+        else None
     )
-    if not opening_four_column:
+    if opening_four_column is None:
         violations.append("four-column evidence wall must immediately follow the opening callout")
-    elif root_ids.index(opening_four_column["block_id"]) > 2:
-        violations.append("four-column evidence wall appears too late; it must follow the opening callout")
     for grid in grids:
         columns = grid.get("children") or []
         if len(columns) not in (2, 3, 4):
@@ -341,13 +338,14 @@ def main():
     if len(images) < 2:
         violations.append(f"child document must contain at least two evidence images, found {len(images)}")
     image_hashes = {}
+    image_hash_by_block = {}
     image_hash_errors = []
     for image_block in images:
         image_id = image_block["block_id"]
         image = image_block.get("image") or {}
         width = image.get("width") or 0
         height = image.get("height") or 0
-        if width <= 200 and height <= 200:
+        if width <= 200 or height <= 200:
             violations.append(f"image {image_id} is an unreadable thumbnail at {width}x{height}")
         token = image.get("token")
         if not token:
@@ -358,6 +356,7 @@ def main():
             try:
                 digest = image_digest(fd, token)
                 image_hashes.setdefault(digest, []).append(image_id)
+                image_hash_by_block[image_id] = digest
             except Exception as exc:
                 raise RuntimeError(
                     f"cannot read image media for duplicate-content validation: "
@@ -368,13 +367,88 @@ def main():
         if image_id in root_ids:
             index = root_ids.index(image_id)
             previous_text = block_text(blocks.get(root_ids[index - 1], {})) if index > 0 else ""
-            next_text = block_text(blocks.get(root_ids[index + 1], {})) if index + 1 < len(root_ids) else ""
-            if not previous_text and not next_text:
+            if not previous_text:
                 violations.append(f"root-level image {image_id} has no preceding explanatory text")
 
     duplicate_image_groups = [block_ids for block_ids in image_hashes.values() if len(block_ids) > 1]
     for block_ids in duplicate_image_groups:
         violations.append(f"same image content is repeated across blocks: {', '.join(block_ids)}")
+
+    model_entry = None
+    screenshot_by_child_block = {}
+    if manifest is not None:
+        parent_section = manifest.get("parent_section")
+        child_target = manifest.get("child_wiki_doc")
+        screenshots = manifest.get("screenshots")
+        model_entry = parent_section.get("model_entry") if isinstance(parent_section, dict) else None
+        if not isinstance(model_entry, str) or not model_entry.strip():
+            violations.append("manifest parent_section.model_entry is missing")
+        if not isinstance(child_target, dict):
+            violations.append("manifest child_wiki_doc must be an object")
+        else:
+            expected_child = {
+                "obj_token": document_id,
+                "node_token": wiki_node.get("node_token") if wiki_node else None,
+                "parent_node_token": args.parent_node,
+                "title": title,
+            }
+            for key, value in expected_child.items():
+                if child_target.get(key) != value:
+                    violations.append(f"manifest child_wiki_doc.{key} does not match the live child document")
+
+        if not isinstance(screenshots, list):
+            violations.append("manifest screenshots must be an array")
+            screenshots = []
+        for index, record in enumerate(screenshots):
+            if not isinstance(record, dict):
+                violations.append(f"manifest screenshots[{index}] must be an object")
+                continue
+            if record.get("model_entry") != model_entry:
+                violations.append(f"manifest screenshots[{index}].model_entry does not match parent_section.model_entry")
+            child_block = record.get("child_image_block")
+            if not child_block:
+                continue
+            if child_block in screenshot_by_child_block:
+                violations.append(f"manifest child_image_block is duplicated: {child_block}")
+                continue
+            screenshot_by_child_block[child_block] = record
+            if child_block not in blocks or blocks[child_block].get("block_type") != 27:
+                violations.append(f"manifest child_image_block is missing from the live child document: {child_block}")
+                continue
+            if record.get("content_sha256") != image_hash_by_block.get(child_block):
+                violations.append(f"manifest content_sha256 does not match live child image block: {child_block}")
+
+    unbound = sorted(set(image_hash_by_block) - set(screenshot_by_child_block))
+    if unbound:
+        violations.append("live child images missing manifest binding: " + ", ".join(unbound))
+
+    if opening_four_column is not None and manifest is not None:
+        opening_image_ids = [
+            block_id
+            for column_id in opening_four_column.get("children") or []
+            for block_id in descendant_ids(column_id, blocks)
+            if blocks.get(block_id, {}).get("block_type") == 27
+        ]
+        missing_records = [block_id for block_id in opening_image_ids if block_id not in screenshot_by_child_block]
+        if missing_records:
+            violations.append(
+                "opening evidence images are missing manifest screenshot records: " + ", ".join(missing_records)
+            )
+        source_classes = {
+            screenshot_by_child_block[block_id].get("source_class")
+            for block_id in opening_image_ids
+            if block_id in screenshot_by_child_block
+            and screenshot_by_child_block[block_id].get("source_class")
+        }
+        originals = [screenshot_by_child_block[bid].get("source_original") for bid in opening_image_ids if bid in screenshot_by_child_block]
+        if len(set(originals)) != len(originals):
+            violations.append("opening evidence wall repeats one original source through crops")
+        if not source_classes <= SOURCE_CLASSES:
+            violations.append("opening evidence wall uses an unknown source_class")
+        if len(source_classes) < 3:
+            violations.append(
+                f"opening evidence wall must cover at least three manifest source classes, found {len(source_classes)}"
+            )
 
     benchmark_index = indexes.get("Benchmark")
     release_index = indexes.get("发布过程")
@@ -426,15 +500,23 @@ def main():
     clickable = sorted({url for block in items for url in clickable_urls(block)})
     if len(urls) < 3:
         violations.append(f"child document must contain at least three source URLs, found {len(urls)}")
-    if not any(args.parent_node in url for url in clickable):
+    target = manifest["sync_target"]
+    if not any(linked_target(element, target["parent_doc"], args.parent_node, target["allowed_link_hosts"])
+               for block in items for element in block.get(TEXT_KEYS.get(block.get("block_type")), {}).get("elements", [])):
         violations.append("child document is missing a clickable return link to the parent summary Wiki")
 
+    assert_document_unchanged(fd, snapshot)
     output = {
+        **provenance(manifest, snapshot),
+        "snapshot": snapshot,
+        "image_hash_by_block": image_hash_by_block,
         "status": "pass" if not violations else "fail",
         "document": document_id,
         "wiki_node": wiki_node.get("node_token") if wiki_node else None,
         "title": title,
         "parent_node": wiki_node.get("parent_node_token") if wiki_node else None,
+        "model_entry": model_entry,
+        "manifest": str(Path(args.manifest).expanduser()),
         "sections": indexes,
         "grid_count": len(grids),
         "grid_column_counts": column_counts,

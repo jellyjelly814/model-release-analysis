@@ -66,14 +66,18 @@ def run_command(arguments: list[str], label: str) -> None:
 def main() -> int:
     parse_python_sources()
     check_bash_snippets()
+    if not (ROOT / "tests").is_dir() or not list((ROOT / "tests").glob("test_*.py")):
+        raise SystemExit("packaging error: tests missing; cannot claim local validation pass")
     run_command(
-        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"],
+        [sys.executable, "-c", "import unittest; suite=unittest.defaultTestLoader.discover('tests', pattern='test_*.py'); count=suite.countTestCases(); result=unittest.TextTestRunner().run(suite); raise SystemExit(0 if count > 0 and result.wasSuccessful() else 1)"],
         "unittest",
     )
     run_command([sys.executable, "scripts/validate_child_document.py", "--help"], "child validator CLI")
     run_command([sys.executable, "scripts/validate_vendor_section.py", "--help"], "vendor validator CLI")
     run_command([sys.executable, "scripts/validate_update_manifest.py", "--help"], "manifest validator CLI")
     run_command([sys.executable, "scripts/record_validator_result.py", "--help"], "result recorder CLI")
+    for name in ("validate_tables.py", "validate_claims.py", "sync_run.py", "package_skill_clean.py"):
+        run_command([sys.executable, "scripts/" + name, "--help"], name + " CLI")
     print("local validation: pass")
     return 0
 

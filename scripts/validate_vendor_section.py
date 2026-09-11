@@ -2,12 +2,15 @@
 """Validate a vendor section against the parent-page model-entry contract."""
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
 import re
 import sys
+from pathlib import Path
 from urllib.parse import urlparse
+from sync_common import (document_snapshot, assert_document_unchanged, provenance, linked_target, local_file)
 
 
 TEXT_KEYS = {
@@ -77,6 +80,22 @@ def block_urls(block):
     return urls
 
 
+def clickable_urls(block):
+    key = TEXT_KEYS.get(block.get("block_type"))
+    if not key:
+        return []
+    urls = []
+    for element in block.get(key, {}).get("elements", []):
+        text_run = element.get("text_run", {})
+        url = text_run.get("text_element_style", {}).get("link", {}).get("url")
+        if url:
+            urls.append(url)
+        mention = element.get("mention_doc", {})
+        if mention.get("url"):
+            urls.append(mention["url"])
+    return urls
+
+
 def is_artificial_analysis_url(value):
     if not isinstance(value, str):
         return False
@@ -85,6 +104,35 @@ def is_artificial_analysis_url(value):
     return parsed.scheme in {"http", "https"} and (
         host == "artificialanalysis.ai" or host.endswith(".artificialanalysis.ai")
     )
+
+
+def image_signature(path):
+    head = Path(path).read_bytes()[:16]
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if head.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def verify_local_image(record, label):
+    violations = []
+    local_path = record.get("local_path")
+    if not local_path or not os.path.isfile(local_path):
+        return [f"{label} local_path is missing or unreadable"]
+    if os.path.getsize(local_path) < 100:
+        violations.append(f"{label} local file is smaller than 100 bytes")
+    if image_signature(local_path) is None:
+        violations.append(f"{label} local file is not a supported image by file signature")
+    declared = record.get("content_sha256")
+    actual = hashlib.sha256(Path(local_path).read_bytes()).hexdigest()
+    if not isinstance(declared, str) or declared.lower() != actual:
+        violations.append(f"{label} content_sha256 does not match local_path")
+    return violations
 
 
 def descendant_ids(block_id, blocks):
@@ -103,14 +151,14 @@ def allowed_trailing_root_block(block):
     )
 
 
-def social_visual_proof(image_id, manifest):
+def social_visual_proof(image_id, manifest, model_entry=None):
     if not manifest:
         return ["social visual proof manifest is required"]
     record = next(
         (
             item
             for item in manifest.get("screenshots", [])
-            if item.get("kind") == "social" and item.get("image_block") == image_id
+            if item.get("kind") == "social" and item.get("parent_image_block") == image_id
         ),
         None,
     )
@@ -131,25 +179,42 @@ def social_visual_proof(image_id, manifest):
         violations.append("social screenshot complete_post must be explicitly true")
     if not record.get("source_url", "").startswith("http"):
         violations.append("social screenshot is missing its source URL")
-
-    local_path = record.get("local_path")
-    if not local_path or not os.path.exists(local_path):
-        violations.append("social screenshot local_path is missing or unreadable")
-    elif os.path.getsize(local_path) < 100:
-        violations.append("social screenshot local file is smaller than 100 bytes")
+    if model_entry and record.get("model_entry") != model_entry:
+        violations.append("social screenshot model_entry does not match the validated entry")
+    if "C" in manifest.get("sync_target", {}).get("scope", []) and not record.get("child_image_block"):
+        violations.append("social screenshot is missing its child_image_block")
+    violations.extend(verify_local_image(record, "social screenshot"))
     return violations
 
 
-def artificial_analysis_proof(manifest):
-    """Require two distinct, visually verified Artificial Analysis evidence blocks."""
+def artificial_analysis_proof(manifest, model_entry=None):
+    """Apply the manifest's conditional Artificial Analysis evidence policy."""
     if not manifest:
         return ["Artificial Analysis screenshot manifest is required"]
+    if "C" not in manifest.get("sync_target", {}).get("scope", []):
+        return []
+    policy = manifest.get("evidence_policy", {}).get("artificial_analysis", {})
+    status = policy.get("status")
+    if status in {"checked_unavailable", "not_applicable"}:
+        violations = []
+        checked_urls = policy.get("checked_urls")
+        if not isinstance(checked_urls, list) or not checked_urls:
+            violations.append(f"Artificial Analysis {status} policy requires checked_urls")
+        if not isinstance(policy.get("reason"), str) or not policy["reason"].strip():
+            violations.append(f"Artificial Analysis {status} policy requires a reason")
+        alternatives = policy.get("alternatives")
+        if not isinstance(alternatives, list) or not alternatives:
+            violations.append(f"Artificial Analysis {status} policy requires alternatives")
+        return violations
+    if status != "available":
+        return ["Artificial Analysis evidence policy status is missing or invalid"]
     records = [
         item
         for item in manifest.get("screenshots", [])
         if item.get("kind") == "artificial_analysis"
         if item.get("source_class") == "independent_benchmark"
         and is_artificial_analysis_url(item.get("source_url"))
+        and (model_entry is None or item.get("model_entry") == model_entry)
     ]
     violations = []
     if len(records) < 2:
@@ -160,8 +225,8 @@ def artificial_analysis_proof(manifest):
     if len(sections) < 2:
         violations.append("Artificial Analysis screenshots must cover at least two distinct page sections")
     for record in records:
-        if not record.get("image_block"):
-            violations.append("Artificial Analysis screenshot is missing its actual image_block")
+        if "C" in manifest.get("sync_target", {}).get("scope", []) and not record.get("child_image_block"):
+            violations.append("Artificial Analysis screenshot is missing its actual child_image_block")
         if not record.get("child_placement"):
             violations.append("Artificial Analysis screenshot is missing its child_placement")
         visual = record.get("visual_check", {})
@@ -171,15 +236,13 @@ def artificial_analysis_proof(manifest):
             violations.append("Artificial Analysis screenshot must be visually checked with view_image")
         if visual.get("blank") is not False:
             violations.append("Artificial Analysis screenshot blank must be explicitly false")
-        local_path = record.get("local_path")
-        if not local_path or not os.path.exists(local_path):
-            violations.append("Artificial Analysis screenshot local_path is missing or unreadable")
-    image_blocks = [record.get("image_block") for record in records if record.get("image_block")]
+        violations.extend(verify_local_image(record, "Artificial Analysis screenshot"))
+    image_blocks = [record.get("child_image_block") for record in records if record.get("child_image_block")]
     if len(image_blocks) != len(set(image_blocks)):
-        violations.append("Artificial Analysis screenshots must use distinct image_block values")
-    local_paths = [record.get("local_path") for record in records if record.get("local_path")]
-    if len(local_paths) != len(set(local_paths)):
-        violations.append("Artificial Analysis screenshots must use distinct local_path values")
+        violations.append("Artificial Analysis screenshots must use distinct child_image_block values")
+    hashes = [record.get("content_sha256") for record in records if record.get("content_sha256")]
+    if len(hashes) != len(set(hashes)):
+        violations.append("Artificial Analysis screenshots must use distinct content_sha256 values")
     return violations
 
 
@@ -200,8 +263,14 @@ def validate_entry(root_ids, start, end, blocks, manifest, require_social_visual
     detail = blocks[detail_id]
     if detail.get("block_type") != 2 or not block_text(detail).startswith("详细追踪"):
         violations.append("second root block must be the detail-tracking text block")
-    elif not has_doc_mention(detail):
-        violations.append("detail-tracking block has no mention_doc link")
+    elif manifest:
+        child = manifest.get("child_wiki_doc", {})
+        hosts = manifest.get("sync_target", {}).get("allowed_link_hosts", [])
+        if not any(linked_target(element, child.get("obj_token"), child.get("node_token"), hosts)
+                   for element in detail.get("text", {}).get("elements", [])):
+            violations.append("detail-tracking link does not target the manifest child document")
+    elif not clickable_urls(detail) and not has_doc_mention(detail):
+        violations.append("detail-tracking block has no clickable document link")
 
     grid_id = entry_ids[2]
     grid = blocks[grid_id]
@@ -271,25 +340,25 @@ def validate_entry(root_ids, start, end, blocks, manifest, require_social_visual
             right_desc = descendant_ids(right_id, blocks)
             left_text_blocks = [block_text(blocks[x]) for x in left_desc if block_text(blocks[x])]
             left_text = "\n".join(left_text_blocks)
-            urls = sorted({url for x in left_desc for url in block_urls(blocks[x])})
+            urls = sorted({url for x in left_desc for url in clickable_urls(blocks[x])})
 
             if not left_text_blocks or left_text_blocks[0] in {"网页", "网页："}:
                 violations.append("social left column is missing a propagation analysis paragraph")
             if "网页" not in left_text:
                 violations.append("social left column is missing 网页")
             if len(urls) < 2:
-                violations.append(f"social left column must contain at least two URLs, found {len(urls)}")
+                violations.append(f"social left column must contain at least two clickable URLs, found {len(urls)}")
 
             image_ids = [x for x in right_desc if blocks[x].get("block_type") == 27]
-            if len(image_ids) != 1:
-                violations.append(f"social right column must contain exactly one image, found {len(image_ids)}")
+            if len(image_ids) > 1:
+                violations.append(f"social right column may contain at most one image, found {len(image_ids)}")
             for image_id in image_ids:
                 image = blocks[image_id].get("image", {})
                 width, height = image.get("width") or 0, image.get("height") or 0
                 if width > 720 or height > 1000:
                     violations.append(f"social image exceeds 720x1000: {width}x{height}")
                 if require_social_visual_proof:
-                    violations.extend(social_visual_proof(image_id, manifest))
+                    violations.extend(social_visual_proof(image_id, manifest, title))
 
     root_images = [x for x in entry_ids if blocks[x].get("block_type") == 27]
     if root_images:
@@ -310,6 +379,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--doc", required=True)
     parser.add_argument("--vendor", required=True, help="Substring of the vendor heading")
+    scope = parser.add_mutually_exclusive_group(required=True)
+    scope.add_argument("--model-entry", help="Exact dated model heading to validate for this delivery")
+    scope.add_argument(
+        "--all-entries",
+        action="store_true",
+        help="Validate every dated entry in the vendor section for an explicit migration audit",
+    )
     parser.add_argument(
         "--helper",
         required=True,
@@ -324,7 +400,7 @@ def main():
     parser.add_argument(
         "--require-artificial-analysis",
         action="store_true",
-        help="Fail unless the manifest contains two distinct, visually verified Artificial Analysis screenshots",
+        help="Apply the manifest's conditional Artificial Analysis evidence policy",
     )
     args = parser.parse_args()
 
@@ -336,9 +412,15 @@ def main():
     if args.manifest:
         with open(args.manifest, "r", encoding="utf-8") as handle:
             manifest = json.load(handle)
+        if not isinstance(manifest, dict) or manifest.get("schema_version") != 3:
+            raise ValueError("vendor validation requires manifest schema_version 3")
 
+    if manifest:
+        for record in manifest.get("screenshots", []):
+            record["local_path"] = str(local_file(args.manifest, record["local_path"]))
     fd = load_helper(args.helper)
-    items = fd._all_blocks(args.doc)
+    snapshot = document_snapshot(fd, args.doc)
+    items = snapshot["blocks"]
     blocks = {block.get("block_id"): block for block in items}
     root = blocks.get(args.doc) or next((b for b in items if b.get("block_type") == 1), None)
     if not root:
@@ -346,7 +428,7 @@ def main():
     root_ids = root.get("children") or []
 
     vendor_index = next(
-        (i for i, block_id in enumerate(root_ids) if blocks[block_id].get("block_type") == 4 and args.vendor in block_text(blocks[block_id])),
+        (i for i, block_id in enumerate(root_ids) if blocks[block_id].get("block_type") == 4 and args.vendor == block_text(blocks[block_id])),
         None,
     )
     if vendor_index is None:
@@ -361,9 +443,33 @@ def main():
         for i in range(vendor_index + 1, section_end)
         if blocks[root_ids[i]].get("block_type") == 5 and block_text(blocks[root_ids[i]]).startswith("【")
     ]
-    entries = []
+    all_entry_ranges = []
     for position, start in enumerate(heading_indexes):
         end = heading_indexes[position + 1] if position + 1 < len(heading_indexes) else section_end
+        all_entry_ranges.append((start, end))
+
+    global_violations = []
+    if not heading_indexes:
+        global_violations.append("vendor section contains no dated model entries")
+    if args.all_entries:
+        selected_ranges = all_entry_ranges
+        selected_model = None
+        validation_scope = "all_entries"
+    else:
+        selected_ranges = [
+            (start, end)
+            for start, end in all_entry_ranges
+            if block_text(blocks[root_ids[start]]) == args.model_entry
+        ]
+        selected_model = args.model_entry
+        validation_scope = "current_entry"
+        if len(selected_ranges) > 1:
+            global_violations.append("duplicate current model headings; resolve before completion")
+        if heading_indexes and not selected_ranges:
+            global_violations.append(f"current model entry not found: {args.model_entry}")
+
+    entries = []
+    for start, end in selected_ranges:
         entries.append(
             validate_entry(
                 root_ids,
@@ -375,16 +481,47 @@ def main():
             )
         )
 
-    global_violations = []
-    if not heading_indexes:
-        global_violations.append("vendor section contains no dated model entries")
+    if manifest and not args.all_entries:
+        manifest_model = manifest.get("parent_section", {}).get("model_entry")
+        if manifest_model != args.model_entry:
+            global_violations.append("--model-entry must match manifest parent_section.model_entry")
     if args.require_artificial_analysis:
-        global_violations.extend(artificial_analysis_proof(manifest))
+        global_violations.extend(artificial_analysis_proof(manifest, selected_model))
+    image_hash_by_block = {}
+    if manifest and not args.all_entries:
+        selected_ids = {bid for start, end in selected_ranges for rid in root_ids[start:end]
+                        for bid in [rid, *descendant_ids(rid, blocks)]}
+        records = {r.get("parent_image_block"): r for r in manifest.get("screenshots", []) if r.get("parent_image_block")}
+        actual_images = {bid for bid in selected_ids if blocks[bid].get("block_type") == 27}
+        if set(records) != actual_images:
+            global_violations.append("parent image manifest bindings differ from live current-entry images")
+        for bid in actual_images:
+            token = blocks[bid].get("image", {}).get("token")
+            if not token or not callable(getattr(fd, "download_media", None)):
+                raise RuntimeError("parent media cannot be downloaded for hash verification")
+            actual = hashlib.sha256(fd.download_media(token)).hexdigest()
+            image_hash_by_block[bid] = actual
+            if records.get(bid, {}).get("content_sha256") != actual:
+                global_violations.append(f"parent image content hash differs from manifest: {bid}")
+    assert_document_unchanged(fd, snapshot)
     violation_count = len(global_violations) + sum(len(entry["violations"]) for entry in entries)
+    vendor_title = block_text(blocks[root_ids[vendor_index]])
+    historical_entries = [
+        block_text(blocks[root_ids[index]])
+        for index in heading_indexes
+        if args.all_entries or block_text(blocks[root_ids[index]]) != args.model_entry
+    ]
     output = {
+        **(provenance(json.loads(Path(args.manifest).read_text()), snapshot) if manifest else {}),
+        "snapshot": snapshot,
+        "image_hash_by_block": image_hash_by_block,
+        "audit_only": bool(args.all_entries or not manifest),
         "status": "pass" if violation_count == 0 else "fail",
-        "vendor": block_text(blocks[root_ids[vendor_index]]),
+        "vendor": vendor_title,
         "document": args.doc,
+        "model_entry": selected_model,
+        "validation_scope": validation_scope,
+        "historical_entries": historical_entries,
         "manifest": args.manifest,
         "require_social_visual_proof": args.require_social_visual_proof,
         "require_artificial_analysis": args.require_artificial_analysis,

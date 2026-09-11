@@ -4,3 +4,8 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 
+
+# Local target configuration and generated Skill archives
+/config/targets.json
+/dist/
+/PACKAGE-MANIFEST.json

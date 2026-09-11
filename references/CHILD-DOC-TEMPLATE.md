@@ -51,7 +51,7 @@ callout 后紧接一行四列图片，快速展示最值得看的四份证据。
 
 用 5–8 条 bullet 完成硬参数和集中判断：发布时间与时区、定价、上下文、输出长度、模态、可用渠道、训练或架构变化，以及一条包含领先项和短板的核心结论。关键数字可以用飞书高亮，但不要整段荧光色。
 
-基本信息后使用一行两列证据，例如官方对比表与 Artificial Analysis / Arena 总览。Artificial Analysis 不是只截一张总览图：页面存在多个有效榜单或分析区块时，至少分别截图模型总览和 benchmark / 排名分解两类证据，图片下面写清对应指标和区块。
+基本信息后使用一行两列证据，例如官方对比表与独立评测 / Arena 总览。若 Artificial Analysis evidence policy 为 `available`，至少分别截图模型总览和 benchmark / 排名分解两类证据，图片下面写清对应指标和区块；若为 `checked_unavailable` 或 `not_applicable`，使用 manifest 中记录的替代证据，不放占位图。
 
 ### 3. 模型特点 + 展示 Case
 
@@ -159,7 +159,7 @@ grid 后补一条模型特定的关键判断，不能写“分项看领先项、
 - 子文档保留高分辨率原图，不设置父页的 `600x300`、`720x480` 或 `720x1000` 上限，不在上传前重采样；飞书负责按页面宽度展示，读者仍可点开原图查看细节。
 - 允许有文字承接的根级单图；仍然禁止表格内图片、无上下文的孤立图片和纯宣传海报。官网整页长截图不是默认选择，但当局部裁图无法完整保留表头、首尾行、坐标轴、图例、作者、正文、时间或互动区时，必须使用完整网页 / 完整文章 / 完整当前帖子，不能交付半截截图。
 - 图片不得出现上一行 / 下一行残片、半截标签、被裁掉的图例或右侧侧栏窄条。无法干净去除这些内容时，保留完整页面优先于继续裁剪。
-- Artificial Analysis 截图是强制证据。每个模型至少需要两张互不重复、实际放入子文档的 AA 图：一张覆盖 Intelligence / 速度 / 价格 / 上下文等模型总览，一张覆盖 Intelligence、Agent、coding、cost 或其他可见 benchmark / 排名分解；每张图必须对应不同 `source_section` 和独立 manifest 记录。
+- Artificial Analysis 按 manifest 的证据策略执行。状态为 `available` 时至少需要两张互不重复、实际放入子文档的 AA 图：一张覆盖 Intelligence / 速度 / 价格 / 上下文等模型总览，一张覆盖 Intelligence、Agent、coding、cost 或其他可见 benchmark / 排名分解；每张图必须对应不同 `source_section`、`content_sha256`、`child_image_block` 和独立 manifest 记录。状态为 `checked_unavailable` 或 `not_applicable` 时，不强制 AA 图片，但必须记录检查 URL、原因和替代证据。
 - 能力 / Case 图片必须是官方图表、真实任务结果、产品输出或可核对的外部评测；禁止使用程序生成的“核心能力 / 展示 Case”摘要卡或占位卡。
 - 三列发布 / 社区区块不规定每列图片数量；图片数量由真实证据决定。某列纯文字是合法状态，同一张 benchmark、社媒帖或 Demo 不得在多个章节反复出现。
 - 开场四列中的图片只做视觉索引，后文用文字展开对应结论，不再次插入同一图片。图片必须能从可见内容直接支持邻近文案，不能用无关网页、普通转发、截断表格或内部生成摘要卡占位。
@@ -171,9 +171,9 @@ grid 后补一条模型特定的关键判断，不能写“分项看领先项、
 运行：
 
 ```bash
-python3 scripts/validate_child_document.py --helper <feishu_helper.py> --doc <child_doc_or_wiki_token> --parent-node <actual_parent_node_token>
+python3 scripts/validate_child_document.py --helper <feishu_helper.py> --doc <child_doc_or_wiki_token> --parent-node <actual_parent_node_token> --manifest <研究文件夹>/update-manifest.json
 ```
 
-`--helper` 和 `--parent-node` 都是必填参数。`--helper` 必须指向当前运行时已确认存在的兼容飞书 helper；`--parent-node` 必须使用当前目标的 API 回读值。校验器不会再默认读取私人目录中的 helper，也不会默认指向某个固定 Wiki 节点。
+`--helper`、`--parent-node` 和 v3 `--manifest` 都是必填参数。`--helper` 必须指向当前运行时已确认存在的兼容飞书 helper；`--parent-node` 必须使用当前目标的 API 回读值。校验器不会再默认读取私人目录中的 helper，也不会默认指向某个固定 Wiki 节点。
 
-只有 `status: pass` 且 `violation_count: 0`，才可把目标 C 标记为完成。
+子页 validator 通过后还需统一 sync_run.py verify 保存结果、复核当前远端并运行最终门禁，才能标记本次交付完成。

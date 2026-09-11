@@ -45,6 +45,7 @@ def _run_cli(args: list[str], *, cwd: str | None = None) -> tuple[int, str, str]
         capture_output=True,
         text=True,
         check=False,
+        timeout=60,
     )
     return completed.returncode, completed.stdout, completed.stderr
 
@@ -52,6 +53,8 @@ def _run_cli(args: list[str], *, cwd: str | None = None) -> tuple[int, str, str]
 def api(method: str, path: str):
     """Call a Feishu API path through lark-cli and return helper-style data."""
 
+    if method.upper() not in {"GET", "HEAD"}:
+        raise ValueError("validation helper permits read-only requests")
     parsed = urlsplit(path)
     # The installed lark-cli exposes the generic API formatter as
     # ``--format json``; unlike shortcut commands it does not accept the
@@ -86,6 +89,7 @@ def _all_blocks(document_id: str) -> list[dict[str, Any]]:
 
     blocks: list[dict[str, Any]] = []
     page_token = ""
+    seen_tokens = set()
     while True:
         params = {"page_size": "500", "document_revision_id": "-1"}
         if page_token:
@@ -99,8 +103,9 @@ def _all_blocks(document_id: str) -> list[dict[str, Any]]:
         if not data.get("has_more"):
             return blocks
         page_token = data.get("page_token") or ""
-        if not page_token:
-            raise RuntimeError("block API reported has_more without a page_token")
+        if not page_token or page_token in seen_tokens:
+            raise RuntimeError("block API returned a missing or repeated page_token")
+        seen_tokens.add(page_token)
 
 
 def download_media(token: str) -> bytes:
@@ -136,3 +141,69 @@ def _uat() -> str:
             "or provide FEISHU_USER_ACCESS_TOKEN explicitly"
         )
     return token
+
+
+def _shortcut(args):
+    code, stdout, _ = _run_cli(["sheets", *args, "--as", IDENTITY, "--format", "json"])
+    if code:
+        raise RuntimeError(f"sheets read command failed (exit {code})")
+    result = _decode_json(stdout)
+    if result.get("ok") is not True or not isinstance(result.get("data"), dict):
+        raise RuntimeError("sheets shortcut did not return a successful data object")
+    return result["data"]
+
+
+def sheet_metadata(token, sheet_id):
+    data = _shortcut(["+workbook-info", "--spreadsheet-token", token])
+    sheets = data.get("sheets")
+    if not isinstance(sheets, list):
+        raise RuntimeError("workbook-info missing sheets; update the adapter for the observed CLI schema")
+    matches = [s for s in sheets if s.get("sheet_id", s.get("reference_id")) == sheet_id]
+    if len(matches) != 1:
+        raise RuntimeError("cannot uniquely resolve requested sheet")
+    sheet = matches[0]
+    grid = sheet.get("grid_properties", sheet)
+    rows, cols = grid.get("row_count"), grid.get("column_count")
+    if not isinstance(rows, int) or not isinstance(cols, int) or rows < 1 or cols < 1:
+        raise RuntimeError("sheet physical dimensions unavailable")
+    return {"row_count": rows, "column_count": cols, "sheet_id": sheet_id}
+
+
+def read_sheet_range(token, sheet_id, a1_range):
+    """Typed CLI read with original row/column coordinates and formula preservation.
+
+    Fail closed on truncation or an unfamiliar envelope; never infer cell addresses
+    from a clipped matrix. Validation compares the normalized snapshot twice.
+    """
+    data = _shortcut(["+cells-get", "--spreadsheet-token", token, "--sheet-id", sheet_id,
+                      "--range", a1_range, "--include", "value,formula", "--skip-hidden=false"])
+    if data.get("has_more") or data.get("truncated") or data.get("warning_message"):
+        raise RuntimeError("sheet read truncated or warned; split the requested range")
+    ranges = data.get("ranges")
+    if not isinstance(ranges, list) or len(ranges) != 1:
+        raise RuntimeError("cells-get missing one explicit range; unsupported CLI schema")
+    item = ranges[0]
+    if item.get("has_more") or item.get("truncated") or item.get("warning_message"):
+        raise RuntimeError("sheet range incomplete")
+    actual = item.get("actual_range", "").split("!")[-1].replace("$", "")
+    if actual != a1_range:
+        raise RuntimeError("requested sheet range was clipped or changed")
+    rows, cols, cells = item.get("row_indices"), item.get("col_indices"), item.get("cells")
+    if not isinstance(rows, list) or not isinstance(cols, list) or not isinstance(cells, list):
+        raise RuntimeError("cells-get missing original coordinates")
+    if len(cells) != len(rows) or any(not isinstance(row, list) or len(row) != len(cols) for row in cells):
+        raise RuntimeError("cells-get matrix incomplete")
+    values, formulas = [], []
+    for row in cells:
+        value_row, formula_row = [], []
+        for cell in row:
+            if cell is None:
+                cell = {}
+            if not isinstance(cell, dict):
+                raise RuntimeError("cells-get returned an unsupported cell representation")
+            value_row.append(cell.get("value"))
+            formula_row.append(cell.get("formula") or None)
+        values.append(value_row)
+        formulas.append(formula_row)
+    return {"range": actual, "row_indices": rows, "col_indices": cols,
+            "values": values, "formulas": formulas}
