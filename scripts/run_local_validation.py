@@ -76,7 +76,7 @@ def main() -> int:
     run_command([sys.executable, "scripts/validate_vendor_section.py", "--help"], "vendor validator CLI")
     run_command([sys.executable, "scripts/validate_update_manifest.py", "--help"], "manifest validator CLI")
     run_command([sys.executable, "scripts/record_validator_result.py", "--help"], "result recorder CLI")
-    for name in ("validate_tables.py", "validate_claims.py", "sync_run.py", "package_skill_clean.py"):
+    for name in ("validate_tables.py", "validate_claims.py", "validate_business_analysis.py", "render_pricing_report.py", "sync_run.py", "package_skill_clean.py"):
         run_command([sys.executable, "scripts/" + name, "--help"], name + " CLI")
     print("local validation: pass")
     return 0

@@ -1,13 +1,75 @@
 {
   "skill_name": "model-release-analysis",
   "evals": [
-    {"id":1,"name":"announcement-only","prompt":"收录虚构的 Fixture Model v1。官方只公开发布日期、价格和一张能力图；没有独立评测，也没有社区复现。目标和写权限已明确。应如何处理？","expected_output":"真实证据支持的内容继续；AA 先检查再分类；不编造截图/分数；四列证据墙不足时明确 C 未完成。","files":[]},
-    {"id":2,"name":"ambiguous-version","prompt":"把 Fixture Model 加入汇总。给出的官宣同时有 v1-preview 与 v1，价格不同，未指定要哪一个。","expected_output":"先解决版本歧义；不把两个版本合并成一份已完成记录。","files":[]},
-    {"id":3,"name":"price-only-scope","prompt":"只更新 B 表格里 Fixture v1 的价格。父页可读、Sheet 可读写，没有媒体权限和 Wiki 管理权限。已有公式算出的值仍相同，但公式可能被覆盖。","expected_output":"只要求 B 所需权限；核对值和公式；检查全部相关表及模型行；A/C 不写、不伪装完成。","files":[]},
-    {"id":4,"name":"explicit-read-only","prompt":"只读分析这个模型发布，不要写飞书，不要创建文档。目标配置和完整写权限已经存在。","expected_output":"明确只读，不创建/更新飞书或标记同步完成。","files":[]},
-    {"id":5,"name":"partial-multiple-models","prompt":"收录 Fixture v1 和 Example v2。前者 A/B/C 已回读通过；后者 B 失败，其他完成。请给出最终状态和下一步。","expected_output":"逐模型报告；Example v2 部分完成，修复 B；不将整批描述为完成。","files":[]},
-    {"id":6,"name":"uncertain-create-resume","prompt":"上次创建子 Wiki 的请求超时，日志只有 started。远端实际上已有同名页，但本地 token 未记录。继续任务。","expected_output":"先查询/解析远端、确认精确模型与父节点，补真实 token 与回执；不重复创建；重新验证旧 pass。","files":[]},
-    {"id":7,"name":"stale-pass","prompt":"child/vendor 昨天通过，今天父页修订号变化，截图已换。能否复制旧 pass 到 manifest 并宣称本次完成？","expected_output":"不能；旧结果失效，按当前版本重读图片并执行最终实时复核。","files":[]},
-    {"id":8,"name":"maintain-skill","prompt":"评审这个 model-release-analysis Skill，检查测试和打包，不要执行模型发布同步。","expected_output":"仅本地维护，测试包内脚本和解压产物；不把 Skill 维护触发成飞书写入。","files":[]}
+    {
+      "id": 1,
+      "name": "announcement-only",
+      "prompt": "收录虚构的 Fixture Model v1。官方只公开发布日期、价格和一张能力图；没有独立评测，也没有社区复现。目标和写权限已明确。应如何处理？",
+      "expected_output": "真实证据支持的内容继续；AA 先检查再分类；不编造截图/分数；四列证据墙不足时明确 C 未完成。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "ambiguous-version",
+      "prompt": "把 Fixture Model 加入汇总。给出的官宣同时有 v1-preview 与 v1，价格不同，未指定要哪一个。",
+      "expected_output": "先解决版本歧义；不把两个版本合并成一份已完成记录。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "price-only-scope",
+      "prompt": "只更新 B 表格里 Fixture v1 的价格。父页可读、Sheet 可读写，没有媒体权限和 Wiki 管理权限。已有公式算出的值仍相同，但公式可能被覆盖。",
+      "expected_output": "只要求 B 所需权限；核对值和公式；检查全部相关表及模型行；A/C 不写、不伪装完成。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "explicit-read-only",
+      "prompt": "只读分析这个模型发布，不要写飞书，不要创建文档。目标配置和完整写权限已经存在。",
+      "expected_output": "明确只读，不创建/更新飞书或标记同步完成。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "partial-multiple-models",
+      "prompt": "收录 Fixture v1 和 Example v2。前者 A/B/C 已回读通过；后者 B 失败，其他完成。请给出最终状态和下一步。",
+      "expected_output": "逐模型报告；Example v2 部分完成，修复 B；不将整批描述为完成。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "uncertain-create-resume",
+      "prompt": "上次创建子 Wiki 的请求超时，日志只有 started。远端实际上已有同名页，但本地 token 未记录。继续任务。",
+      "expected_output": "先查询/解析远端、确认精确模型与父节点，补真实 token 与回执；不重复创建；重新验证旧 pass。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "stale-pass",
+      "prompt": "child/vendor 昨天通过，今天父页修订号变化，截图已换。能否复制旧 pass 到 manifest 并宣称本次完成？",
+      "expected_output": "不能；旧结果失效，按当前版本重读图片并执行最终实时复核。",
+      "files": []
+    },
+    {
+      "id": 8,
+      "name": "maintain-skill",
+      "prompt": "评审这个 model-release-analysis Skill，检查测试和打包，不要执行模型发布同步。",
+      "expected_output": "仅本地维护，测试包内脚本和解压产物；不把 Skill 维护触发成飞书写入。",
+      "files": []
+    },
+    {
+      "id": 9,
+      "name": "pricing-business-output",
+      "prompt": "给 Fixture v1 做市场向定价比较。官方有输入/输出价格，OpenRouter 有两个供应商报价；不要假设调用量。",
+      "expected_output": "以每百万 token 分列官方与 OpenRouter 报价、保留供应商/路由/日期，生成独立 Markdown 并写入现有子 Wiki 的商业与定价章节。",
+      "files": []
+    },
+    {
+      "id": 10,
+      "name": "aa-methodology-change",
+      "prompt": "DeepSeek V4.1 在 Coding 榜单很强，但 AA 总榜名次普通。请解释原因。",
+      "expected_output": "按 Coding/Agent 与通用能力簇对比；先核对 AA 版本、任务和权重变化；把权重因果作为待验证假设，不能只根据截图断言。",
+      "files": []
+    }
   ]
 }

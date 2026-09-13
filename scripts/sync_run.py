@@ -15,6 +15,7 @@ from sync_common import (RESULT_KEYS, atomic_json, api_data, digest, document_sn
                          input_digest, invalidate, load_helper, local_file, read_json, required_permissions, utc_now)
 from record_validator_result import record
 from validate_tables import embedded_sheets, read_table
+from validate_business_analysis import new_business_analysis, validate_business
 
 ROOT=Path(__file__).resolve().parent
 
@@ -42,6 +43,7 @@ def initialize(args):
               "child_wiki_doc":{"parent_node":config["parent_wiki_node"],"parent_node_token":config["parent_wiki_node"],
                                 "node_token":"<pending>","obj_token":"<pending>","title":args.model_entry,"status":"pending","operation":"create"},
               "claims":[],"claim_coverage":{k:{"status":"pending"} for k in ("identity","availability","pricing","capabilities","benchmarks","release","community")},
+              "business_analysis":new_business_analysis(getattr(args, "analysis_topics", "pricing,leaderboards").split(",")),
               "verification":{},"journal":[]}
     if not set(manifest["sync_target"]["scope"]) <= {"A","B","C"}:
         raise ValueError("scope must be comma-separated A,B,C")
@@ -202,6 +204,7 @@ def verify(path,helper_path):
         "B":("tables",[])}
     filenames={"child":"validate_child_document.py","vendor":"validate_vendor_section.py","tables":"validate_tables.py"}
     summary={}
+    artifacts={}
     for target in ("C","A","B"):
         if target not in scope:
             continue
@@ -213,6 +216,7 @@ def verify(path,helper_path):
         except json.JSONDecodeError:
             raise RuntimeError(f"{kind} validator did not return JSON (exit {completed.returncode})")
         record(path,kind,result)
+        artifacts[target]={"snapshot": result.get("snapshot")}
         manifest=read_json(path)
         passed=result["status"]=="pass" and completed.returncode==0
         manifest["target_status"][target]="verified" if passed else "failed"
@@ -235,6 +239,9 @@ def verify(path,helper_path):
     if any(item["status"]!="pass" for item in summary.values()):
         return {"status":"fail","targets":summary,"delivery_complete":False}
     manifest=read_json(path)
+    business_errors, business_warnings = validate_business(manifest, path, complete=True, artifacts=artifacts)
+    if business_errors:
+        return {"status":"fail","targets":summary,"business_analysis":{"status":"fail","errors":business_errors,"warnings":business_warnings},"delivery_complete":False}
     manifest["verification"]["freshness"]=live_recheck(load_helper(helper_path),manifest,path)
     atomic_json(path,manifest)
     from validate_update_manifest import ManifestValidator
@@ -268,6 +275,7 @@ def main():
     for flag in ("directory","targets","company","model","version","release-date","model-entry"):
         init.add_argument("--"+flag,required=True)
     init.add_argument("--scope",default="A,B,C"); init.add_argument("--read-only",action="store_true")
+    init.add_argument("--analysis-topics",default="pricing,leaderboards",help="comma-separated pricing and/or leaderboards")
     for name in ("preflight","resume","verify","begin-write","checkpoint"):
         command=commands.add_parser(name); command.add_argument("--manifest",required=True); command.add_argument("--helper",required=True)
         if name in {"begin-write","checkpoint"}:

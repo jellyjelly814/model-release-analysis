@@ -15,6 +15,7 @@ from sync_common import (SCHEMA_VERSION, SOURCE_CLASSES, required_permissions, i
                          local_file, file_digest, result_binding_errors, parse_time, utc_now, read_json)
 from validate_tables import plan_errors
 from validate_claims import validate_claims
+from validate_business_analysis import validate_business
 
 
 TOP_LEVEL_REQUIRED = {
@@ -748,6 +749,9 @@ class ManifestValidator:
         self.validate_verification()
         self.validate_cross_consistency()
         self.validate_v3_evidence()
+        business_errors, business_warnings = validate_business(self.data, self.manifest_path, self.require_complete)
+        self.errors.extend(business_errors)
+        self.warnings.extend(business_warnings)
         return self.output()
 
     def output(self) -> dict[str, Any]:

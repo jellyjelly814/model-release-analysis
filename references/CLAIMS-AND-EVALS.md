@@ -28,6 +28,8 @@ benchmark 额外提供 conditions：dataset_version、harness、tools、sampling
 
 review_status=verified 的前提是逐条读过源文件并核对 statement；placements 对应最终真实 block/范围。validate_claims 只验证结构和缓存哈希，不能证明语义正确，也不能识别所有误读或网页伪造。
 
+启用 `business_analysis` 时，价格 quote 和榜单 entry 还要用 `subject_model` 绑定其实际比较对象（例如 `DeepSeek V4.1`），而 `model_version` 继续绑定本次研究任务。价格来源、OpenRouter 端点/路由和 AA 方法说明必须回到已有 claim 的原始 URL 与缓存哈希；榜单条件未知时显式设 `comparable: false`，不能以 validator 通过替代业务结论审阅。
+
 ## 评测用例与边界
 
 `evals/evals.json` 保存用户任务与验收点，包括：只有官宣、缺少独立评测、同名不同版本、仅更新价格、多模型部分失败、明确只读、恢复已创建子页、Skill 自身评审。

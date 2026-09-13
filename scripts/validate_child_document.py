@@ -254,6 +254,7 @@ def main():
 
     section_rules = [
         ("基本信息", lambda text: text.startswith("基本信息")),
+        ("商业与定价", lambda text: text.startswith("商业与定价")),
         ("模型特点 + 展示 Case", lambda text: "模型特点" in text and ("case" in text or "展示" in text)),
         ("Benchmark", lambda text: "benchmark" in text or text.startswith("测评")),
         ("发布过程", lambda text: text == "发布过程" or text.startswith("发布过程：")),
@@ -261,6 +262,8 @@ def main():
         ("社区 Demo", lambda text: "社区" in text and ("demo" in text or "案例" in text)),
         ("MiniMax 可以借鉴的", lambda text: "minimax" in text and "借鉴" in text),
     ]
+    if not isinstance(manifest, dict) or "pricing" not in manifest.get("business_analysis", {}).get("topics", []):
+        section_rules.pop(1)
     indexes = {}
     for label, predicate in section_rules:
         indexes[label] = find_heading(root_ids, blocks, predicate)

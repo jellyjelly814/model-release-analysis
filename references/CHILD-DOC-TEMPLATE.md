@@ -53,6 +53,12 @@ callout 后紧接一行四列图片，快速展示最值得看的四份证据。
 
 基本信息后使用一行两列证据，例如官方对比表与独立评测 / Arena 总览。若 Artificial Analysis evidence policy 为 `available`，至少分别截图模型总览和 benchmark / 排名分解两类证据，图片下面写清对应指标和区块；若为 `checked_unavailable` 或 `not_applicable`，使用 manifest 中记录的替代证据，不放占位图。
 
+### 2A. 商业与定价（启用 business-v1 时）
+
+这一章面向市场、销售和产品读者，写入现有模型子 Wiki，不新建同名模型页。使用 `scripts/render_pricing_report.py` 生成的本地 Markdown 作为唯一正文底稿，保留每百万 token 的输入、输出、缓存和批处理分列，以及官方 / OpenRouter 的供应商、端点、路由、区域、档位和生效日期。不同币种或上下文档位不得合并；未公开写“未公开/不可用”，不得填零。
+
+定价后可以放榜单能力簇和业务标签，但必须区分模型分数、排名、榜单版本与方法变化。AA 的任务替换、类别权重、单项权重和模型结果分开写；没有方法原文就写未知，不从截图推出因果。Coding / Agent（包括 DeepSWE、Terminal-Bench、CyberGym 等待核对项目）单独归类并记录工具、数据集、harness、采样和可比性。
+
 ### 3. 模型特点 + 展示 Case
 
 这部分不是固定两张图，而是按模型真实能力拆成多个 Heading 2 小节。参考页依次写了 Agentic Coding、知识工作 / 企业工作流、科学研究、网络安全、System Card、Token 效率与价格。

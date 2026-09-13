@@ -2,6 +2,12 @@
 
 v3 增加范围相关权限、表格原始回读、事实清单、文档版本绑定及续跑记录。用 `sync_run.py init` 生成准备态，不复制历史完成态。旧 v2 用 `migrate --output <新文件>` 保留原件；新字段需要当前证据，旧 pass 全部清除。
 
+## Business analysis extension
+
+Skill v3.1 initializes `business_analysis.profile=business-v1` with `topics: ["pricing", "leaderboards"]` by default. This extension is optional for legacy v3 manifests, which receive a warning and cannot claim business-v1 acceptance. Use `--analysis-topics pricing` or `--analysis-topics leaderboards` only when the user explicitly narrows the research.
+
+The pricing ledger keeps official and OpenRouter checks separate, binds each quote to reviewed claims, and stores raw token units before displaying per-million-token values. The leaderboard ledger requires capability clusters, exact board/model versions, conditions, explicit comparability, and an AA method-change record. `scripts/render_pricing_report.py` creates a local Markdown report and invalidates previous delivery results; after writing its “商业与定价” chapter into the existing child, record the actual root H1 block and rerun `sync_run.py verify`.
+
 ## 基础结构
 
 - `schema_version: 3`；`run_id` 是新建 UUID；`created_at` 带时区；`mutation_generation` 随写入递增。
